@@ -25,6 +25,52 @@ world.print_rooms()
 
 player = Player(world.starting_room)
 
+class Queue():
+    def __init__(self):
+        self.queue = []
+    def enqueue(self, value):
+        self.queue.append(value)
+    def dequeue(self):
+        if self.size() > 0:
+            return self.queue.pop(0)
+        else:
+            return None
+    def size(self):
+        return len(self.queue)
+
+class Graph:
+    def __init__(self):
+        self.vertices = {}
+
+    def add_vertex(self, vertex):
+        self.vertices[vertex] = set()
+
+    def opposite_direction(self, direction):
+        exits = {'n': 's', 's': 'n', 'e': 'w', 'w': 'e'}
+        return exits[direction]
+
+    def bfs(self, start):
+        queue = Queue()
+        queue.enqueue([start])
+        visited = set() 
+        
+        while queue.size() > 0:
+            path = queue.dequeue()
+            vertex = path[-1]
+            if vertex not in visited:
+                visited.add(vertex)
+
+                for neighbor in self.vertices[vertex]:
+                    if self.vertices[vertex][neighbor] == '?':
+                        return path
+
+                for direction in self.vertices[vertex]:
+                    neighbor_room = self.vertices[vertex][direction]
+                    new_path = path.copy()
+                    new_path.append(neighbor_room)
+                    queue.enqueue(new_path)
+        return None
+
 # Fill this out with directions to walk
 # traversal_path = ['n', 'n']
 '''
@@ -38,34 +84,36 @@ room.get_coords()
 '''
 traversal_path = []
 visited_rooms = set()
-back_up_tracker = -1
-opposite_direction = {'n': 's', 's': 'n', 'e': 'w', 'w': 'e'}
+graph = Graph()
 
-while len(visited_rooms) < len(room_graph):
-    has_exits = False
-    # if player.current_room not in visited_rooms:
-    visited_rooms.add(player.current_room)
-    exits = player.current_room.get_exits()
-
-    for exit in exits:
-        if player.current_room.get_room_in_direction(exit) not in visited_rooms:
-            back_up_tracker = -1
-            player.travel(exit)
-            traversal_path.append(exit)
-            has_exits = True
-            # print('exit', player.current_room)
+while len(graph.vertices) < len(room_graph):
+    current_room = player.current_room.id
+    if current_room not in graph.vertices:
+        graph.add_vertex(current_room)
+        graph.vertices[current_room] = {i: '?' for i in player.current_room.get_exits()}
+    room_exit = None
+    for direction in graph.vertices[current_room]:
+        if graph.vertices[current_room][direction] == '?':
+            room_exit = direction
+            if room_exit is not None:
+                traversal_path.append(room_exit)
+                player.travel(room_exit)
+                if player.current_room.id not in graph.vertices:
+                    graph.add_vertex(player.current_room.id)
+                    graph.vertices[player.current_room.id] = { i: '?' for i in player.current_room.get_exits()}
+            graph.vertices[current_room][room_exit] = player.current_room.id
+            graph.vertices[player.current_room.id][graph.opposite_direction(room_exit)] = current_room
+            current_room = player.current_room.id   
             break
-    if has_exits == False:
-        # print('has_exits', player.current_room)
-        player.travel(opposite_direction[traversal_path[back_up_tracker]])
-        traversal_path.append(opposite_direction[traversal_path[back_up_tracker]])
-        back_up_tracker -= 2
-        visited_rooms.add(player.current_room)
-        # print(traversal_path)
-        
+    rooms = graph.bfs(player.current_room.id)
+    if rooms is not None:
+        for room in rooms:
+            for direction in graph.vertices[current_room]:
+                if graph.vertices[current_room][direction] == room:
+                    traversal_path.append(direction)
+                    player.travel(direction)
 
-
-
+            current_room = player.current_room.id
 
 # TRAVERSAL TEST - DO NOT MODIFY
 player.current_room = world.starting_room
